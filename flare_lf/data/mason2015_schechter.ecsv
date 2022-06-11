@@ -1,0 +1,29 @@
+# %ECSV 1.0
+# ---
+
+# meta: {
+#   name: Mason et al. (2014),
+#   type: Schechter,
+#   model_type: SHAM,
+#   ref = Mason et al. (2014),
+#   }
+
+# datatype:
+# - {name: z, datatype: float64, description: Redshift}
+# - {name: M*, datatype: float64, description: M*}
+# - {name: log10phi*, datatype: float64, description: log10(phi*)}
+# - {name: alpha, datatype: float64, description: alpha, the faint end slope}
+
+z M* log10phi* alpha
+0. -19.9 -2.97 -1.68
+2. -20.3 -2.52 -1.46
+4. -21.2 -2.93 -1.64
+5. -21.2 -3.12 -1.75
+6. -20.9 -3.19 -1.83
+7. -21.0 -3.48 -1.95
+8. -21.3 -4.03 -2.10
+9. -21.2 -4.50 -2.26
+10. -21.1 -5.12 -2.47
+12. -21.0 -5.94 -2.74
+14. -20.9 -7.05 -3.11
+16. -20.7 -8.25 -3.51

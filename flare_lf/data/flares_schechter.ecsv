@@ -1,0 +1,25 @@
+# %ECSV 1.0
+# ---
+
+# meta: {
+#   name: FLARES,
+#   type: Schechter,
+#   model_type: hydro zoom,
+#   ref = Vijayan et al. (2020),
+#   ads: 'https://ui.adsabs.harvard.edu/abs/2020arXiv200806057V/abstract',
+#   arxiv: https://arxiv.org/abs/2008.06057
+#   }
+
+# datatype:
+# - {name: z, datatype: float64, description: Redshift}
+# - {name: M*, datatype: float64, description: M*}
+# - {name: log10phi*, datatype: float64, description: log10(phi*)}
+# - {name: alpha, datatype: float64, description: alpha, the faint end slope}
+
+z M* log10phi* alpha
+5.0 -21.79 -3.63 -1.98
+6.0 -21.59 -3.88 -2.12
+7.0 -22.26 -4.89 -2.49
+8.0 -22.03 -5.25 -2.72
+9.0 -21.35 -4.95 -2.72
+10.0 -20.56 -4.88 -3.15
