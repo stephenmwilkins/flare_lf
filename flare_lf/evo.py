@@ -22,6 +22,7 @@ import csv
 from flare.photom import flux_to_L, lum_to_flux, M_to_lum, lum_to_M
 import flare.core
 
+from .utilities import log10Lnu_to_M, M_to_log10Lnu
 from . import models
 
 
@@ -38,6 +39,60 @@ def read(model, scheme = 'linear'):
 
     if t.meta['type'] == 'binned':
         return Binned(t)
+
+
+def list_data(path):
+    return list(map(lambda x: x.replace('.ecsv', ''), os.listdir(f'{this_dir}/data/{path}')))
+
+def list_models_schechter():
+    return list_data('models/schechter/')
+
+def list_models_binned():
+    return list_data('models/binned/')
+
+
+def get_models_at_redshift(z = None, model_types = ['schechter', 'binned'], verbose = False):
+
+    models = {}
+
+    if 'schechter' in model_types:
+        for model in list_models_schechter():
+
+            model_name = f'models/schechter/{model}'
+            m = read(model_name)
+
+            for redshift in m.redshifts:
+
+                redshift = int(redshift)
+
+                if redshift in models.keys():
+                    models[redshift].append(model_name)
+                else:
+                    models[redshift] = [model_name]
+
+    if 'binned' in model_types:
+        for model in list_models_binned():
+
+            model_name = f'models/binned/{model}'
+            m = read(model_name)
+
+            for redshift in m.redshifts:
+
+                redshift = int(redshift)
+
+                if redshift in models.keys():
+                    models[redshift].append(model_name)
+                else:
+                    models[redshift] = [model_name]
+
+    if verbose:
+        for k, v in models.items():
+            print(k, v)
+
+    if z:
+        return(models[z])
+    else:
+        return(models)
 
 
 
@@ -162,53 +217,6 @@ class evo:
 
 
 
-
-
-
-# class observed:
-#
-#     def sample_p(self, z, N=10, plist = False):
-#
-#         iz = self.redshifts.index(z) # get redshift index
-#
-#         ps = {}
-#
-#         for parameter in self._p.keys():
-#
-#             v = randn(N)
-#             v[v<0] *= -self._perr[parameter][iz][0]
-#             v[v>0] *= self._perr[parameter][iz][1]
-#             ps[parameter] = self._p[parameter][iz] + v
-#
-#         if plist:
-#             pl = []
-#             for i in range(N):
-#                 pl.append({k:v[i] for k,v in ps.items()})
-#             return pl
-#
-#         else:
-#             return ps
-#
-#
-#     def sample_density(self, z, L, N=1000):
-#
-#         pl = self.sample_p(z, N, plist=True)
-#
-#         return np.array([self.model(pl_).density(L) for pl_ in pl])
-#
-#
-#     def density_range(self, z, L, N=1000):
-#
-#         d = np.log10(self.sample_density(z, L, N=N))
-#
-#         return [np.percentile(d, 16), np.percentile(d, 84)]
-
-
-
-
-
-
-
 class parameterised:
 
     """ used to provide LF parameters assuming a (pre-computed) linear fit to the available parameters """
@@ -308,9 +316,10 @@ class Schechter(evo, parameterised):
 
     def __init__(self, t, scheme = 'linear'):
 
+        self.name = t.meta['name']
         self.model = models.Schechter
         self.t = t
-        self.redshifts = self.t['z']
+        self.redshifts = self.t['redshift']
         self.alpha = self.t['alpha']
         self.log10phi_star = self.t['log10phi*']
         self.M_star = self.t['M*']
@@ -325,70 +334,60 @@ class Binned(evo):
 
     def __init__(self, t):
 
+        self.name = t.meta['name']
         self.model = models.binned
         self.t = t
-        # self.redshifts = self.t.meta['redshifts']
 
-
-
-
-
-
+        self.M = {}
+        self.log10L = {}
 
         self.phi = {}
         self.log10phi = {}
-
-        if 'redshift' in self.t.colnames:
-
-            # --- if data is redshift, log10L, phi ... this is most useful I think
-
-            self.redshifts = list(set(self.t['redshift'].data))
-
-            originally_in_mag = False
-            if 'log10L' in self.t.colnames:
-                self.log10L = self.t['log10L'][self.t['redshift']==self.redshifts[0]].data
-            elif 'M' in self.t.colnames:
-                self.M = self.t['M'][self.t['redshift']==self.redshifts[0]].data
-                # self.log10L = # convert to log10 luminosity because that makes more sense
-                originally_in_mag = True
-
-            else:
-                print('no luminosity/magnitude column found, use log10L or M')
-
-            print(self.log10L)
-
-            for z in self.redshifts:
-                if f'phi' in self.t.colnames:
-                    self.phi[z] = self.t[f'phi'][self.t['redshift']==z].data
-                elif f'log10phi' in self.t.colnames:
-                    self.log10phi[z] = self.t[f'log10phi'][self.t['redshift']==z].data
-
-        else:
-
-            # --- if data is log10L, phi_z1, phi_z2, ...
+        self.log10phi_dex = {}
+        self.log10phi_mag = {}
 
 
-            originally_in_mag = False
-            if 'log10L' in self.t.colnames:
-                self.log10L = self.t['log10L'].data
-            elif 'M' in self.t.colnames:
-                self.M = self.t['M'].data
-                # self.log10L = # convert to log10 luminosity because that makes more sense
-                originally_in_mag = True
-            else:
-                print('no luminosity/magnitude column found, use log10L or M')
+        # --- if data is redshift, log10L, phi ... this is most useful I think
 
-
-            for z in self.redshifts:
-                if f'phi_{z}' in self.t.colnames:
-                    self.phi[z] = self.t[f'phi_{z}']
-                elif f'log10phi_{z}' in self.t.colnames:
-                    self.log10phi[z] = self.t[f'log10phi_{z}']
-
-
+        self.redshifts = list(set(self.t['redshift'].data))
         # --- make sure that redshift list is monotonically increasing
         if self.redshifts[0]>self.redshifts[1]:
             self.redshifts = self.redshifts[::-1]
+
+        # --- extract luminosities or magnitudes and number densities, making conversions where necessary.
+        for z in self.redshifts:
+
+            if 'log10L' in self.t.colnames:
+                self.log10L[z] = self.t['log10L'][self.t['redshift']==z].data
+                self.M[z] = log10Lnu_to_M(self.log10L[z])
+
+                if 'log10phi' in self.t.colnames:
+                    self.log10phi_dex[z] = self.t['log10phi'][self.t['redshift']==z].data
+                elif 'phi' in self.t.colnames:
+                    self.log10phi_dex[z] = np.log10(self.t['phi'][self.t['redshift']==z].data)
+                else:
+                    print('WARNING: one column should be log10phi or phi')
+
+                self.log10phi_mag[z] = self.log10phi_dex[z] + np.log10(0.4)
+
+            elif 'M' in self.t.colnames:
+                self.M[z] = self.t['M'][self.t['redshift']==z].data
+                self.log10L[z] = M_to_log10Lnu(self.M[z])
+
+                if 'log10phi' in self.t.colnames:
+                    self.log10phi_mag[z] = self.t['log10phi'][self.t['redshift']==z].data
+                elif 'phi' in self.t.colnames:
+                    self.log10phi_mag[z] = np.log10(self.t['phi'][self.t['redshift']==z].data)
+                else:
+                    print('WARNING: one column should be log10phi or phi')
+
+                self.log10phi_dex[z] = self.log10phi_mag[z] - np.log10(0.4)
+
+            else:
+                print('no luminosity/magnitude column found, use log10L or M')
+
+            self.log10phi[z] = self.log10phi_dex[z]
+            self.phi[z] = 10**self.log10phi[z]
 
         self.phi_log10L = {} # arrays of phi values at different redshifts for each luminosity bin
 
@@ -405,13 +404,10 @@ class Binned(evo):
         """ return the parameters that are fed to the model class to generate the function that gives phi = f(log10) """
         """ *** in this case the parameters are log10L and phi bin values """
 
-
         p = {'log10L': self.log10L}
-
 
         p['phi'] = np.zeros(len(self.log10L))
         for i, log10L in enumerate(self.log10L):
             p['phi'][i] = np.interp(z, self.redshifts, self.phi_log10L[log10L]) # 1D linear interpolation
-
 
         return p
